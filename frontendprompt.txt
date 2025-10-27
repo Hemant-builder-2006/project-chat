@@ -1,0 +1,277 @@
+Act as an expert **Senior Frontend Developer** proficient in **React**, **TypeScript**, **Vite**, state management (React Context/Hooks), **WebSockets**, **WebRTC**, **JWT handling**, **axios**, **Tailwind CSS**, and **PWA configuration**.
+
+**Overall Project Objective:** Build the frontend for a secure, self-hosted, real-time collaboration workspace (like a Notion + Slack/Discord hybrid). The frontend should be a Progressive Web App (PWA) with a 3-column dark theme layout (Groups | Channels/DMs | Main View).
+
+**Instructions:** Generate complete React/TypeScript code files (`.tsx` for components, `.ts` for hooks/utils) based on the following detailed phase-by-phase to-do list. Use functional components and hooks. Implement styling using Tailwind CSS utility classes. Provide explanations for key design choices and best practices alongside the code.
+
+---
+**Phase 1: Project Setup & Foundational Authentication UI**
+---
+
+**Objective:** Initialize the React project, set up basic routing, authentication context, and create the Login/Registration pages.
+
+**To-Do List:**
+
+1.  **Vite Project Setup:**
+    * **Generate:** Provide the exact terminal commands to create a new React project using **Vite** with the **TypeScript** template.
+    * **Generate:** List the necessary `npm install` or `yarn add` commands for core dependencies: `axios`, `react-router-dom`, `jwt-decode`, `tailwindcss`, `postcss`, `autoprefixer`, and optionally a state management library like `zustand` or `jotai` (recommend one).
+    * **Generate:** Show the necessary configuration files for **Tailwind CSS** (`tailwind.config.js`, `postcss.config.js`) and how to import Tailwind's base styles in `src/index.css`.
+    * **Explain:** Briefly explain the benefits of using Vite and Tailwind CSS for this project.
+
+2.  **Basic Routing (`src/App.tsx`):**
+    * **Generate:** Set up the main `App.tsx` component using `react-router-dom` (`BrowserRouter`, `Routes`, `Route`). Define routes for `/login`, `/register`, and a main application route `/app` (which will later be protected). Include a default redirect (e.g., from `/` to `/app`).
+    * **Explain:** How does `react-router-dom` handle client-side navigation?
+
+3.  **Authentication Context (`src/contexts/AuthContext.tsx`):**
+    * **Generate:** Create `AuthContext.tsx`. Implement a context provider (`AuthProvider`) and a custom hook (`useAuth`).
+    * **Code:** The context should manage: `isAuthenticated` (boolean), `user` (User object | null - define basic User type), `accessToken` (string | null), `isLoading` (boolean for initial check).
+    * Implement `login(accessToken: string, refreshToken?: string)` and `logout()` functions within the provider. `login` should store tokens in `localStorage` (add security comment) and fetch/set user data (placeholder for API call). `logout` should clear state and `localStorage`.
+    * Include a `useEffect` hook in the provider to check `localStorage` for existing tokens on initial app load to maintain session persistence, setting `isLoading` appropriately.
+    * **Explain:** Why use React Context for authentication state? Explain the purpose of the initial loading state. Discuss the security implications of storing JWTs in `localStorage`.
+
+4.  **API Service Setup (`src/services/api.ts`):**
+    * **Generate:** Create an `axios` instance configured with the backend base URL (from environment variables - `import.meta.env.VITE_API_URL`).
+    * **Generate:** Implement an `axios` request interceptor that reads the `accessToken` from `localStorage` (or AuthContext) and automatically adds the `Authorization: Bearer <token>` header to outgoing requests.
+    * **Generate:** Implement a basic `axios` response interceptor to handle 401 Unauthorized errors globally (e.g., trigger logout). (Add comment about implementing refresh token logic here later).
+    * **Explain:** How do interceptors simplify adding auth tokens to every API request?
+
+5.  **Login Page (`src/pages/LoginPage.tsx`):**
+    * **Generate:** Create the `LoginPage.tsx` component.
+    * **Code:** Include state (`useState`) for username/password fields and error/loading states. Implement a form `onSubmit` handler that calls the `login` function from `AuthContext` (which internally calls `/api/token` via the `api` service). Handle potential login errors returned from the context function and display them. Include a link to the registration page. Use Tailwind CSS for styling (dark theme inputs, buttons).
+    * **Explain:** How is form state managed? How are errors from the `AuthContext` login function displayed?
+
+6.  **Registration Page (`src/pages/RegistrationPage.tsx`):**
+    * **Generate:** Create the `RegistrationPage.tsx` component.
+    * **Code:** Similar structure to `LoginPage`, including state for username, email, password, confirmPassword, and errors/loading. Implement an `onSubmit` handler that performs basic validation (passwords match, minimum length) and then calls a `register` function (to be added to `AuthContext`) which internally calls `/api/register`. Handle errors. Include a link to the login page. Use Tailwind CSS.
+    * **(Add to `AuthContext.tsx`):** Implement the corresponding `register` async function that calls the `/api/register` endpoint and then automatically calls the `login` function on success.
+
+7.  **Protected Route (`src/components/ProtectedRoute.tsx`):**
+    * **Generate:** Create a `ProtectedRoute.tsx` component.
+    * **Code:** It should use the `useAuth` hook to check `isLoading` and `isAuthenticated`. If loading, show a spinner. If not authenticated, redirect to `/login` using `Maps` from `react-router-dom`. If authenticated, render the `children`.
+    * **Explain:** How does this component protect routes that require login? Show how to wrap the `/app` route in `App.tsx` with this component.
+
+---
+**Phase 2: Multi-Group Layout & Data Fetching**
+---
+
+**Objective:** Implement the 3-column layout, fetch initial data (groups, DMs, channels), and manage navigation state between groups/DMs.
+
+**To-Do List:**
+
+1.  **Type Definitions (`src/types/index.ts`):**
+    * **Generate:** Define basic TypeScript interfaces for `Group` (`id`, `name`, `iconUrl?`), `Channel` (`id`, `name`, `groupId`, `type`), `DM` (`id`, `userName`, `avatarUrl?`).
+
+2.  **`AppLayout.tsx` Component:**
+    * **Generate:** Create `src/components/AppLayout.tsx`. Implement the 3-column layout using Tailwind CSS Flexbox/Grid (narrow-fixed `w-18`, medium-flex `w-60` or `w-72`, wide-flex). Use dark theme background colors (`bg-gray-900`, `bg-gray-800`, `bg-gray-700`). Include placeholders for `GroupList`, `ChannelColumn` (which will contain `GroupHeader` and `ChannelList`), and `MainContentView`.
+    * **Explain:** Justify the choice of Flexbox vs. Grid for the main layout.
+
+3.  **`GroupList.tsx` Component:**
+    * **Generate:** Create `src/components/GroupList.tsx`.
+    * **Props:** `groups: Group[]`, `selectedGroupId: string | null`, `onSelectGroup: (groupId: string) => void`, `onSelectDMs: () => void`.
+    * **Code:** Render a distinct "DMs" button/icon at the top (calling `onSelectDMs`). Map over `groups`, rendering clickable icons (use initials). Apply distinct styling (e.g., white side-marker or shape change) for the `selectedGroupId`. Add hover effects/tooltips. Call `onSelectGroup` on click. Use Tailwind CSS.
+    * **Explain:** How are hover and selected states styled using Tailwind?
+
+4.  **`ChannelColumn.tsx` Component:**
+    * **Generate:** Create `src/components/ChannelColumn.tsx`. This component will occupy the second column.
+    * **Props:** `groupName: string | null`, `channels: Channel[]`, `directMessages: DM[]`, `selectedChannelId: string | null`, `isDmView: boolean`, `onSelectChannel: (channelId: string, isDm: boolean) => void`.
+    * **Code:** Render a `GroupHeader.tsx` component at the top (passing `groupName` or "Direct Messages"). Render a `ChannelList.tsx` component below it, passing down the relevant props (`channels`, `directMessages`, `selectedChannelId`, `isDmView`, `onSelectChannel`). Add vertical scrolling for the channel list area.
+    * **Explain:** How does this component orchestrate the display of the header and list based on whether a group or DMs are selected?
+
+5.  **`GroupHeader.tsx` Component:**
+    * **Generate:** Create `src/components/GroupHeader.tsx`. Accepts `title: string`. Displays the title with appropriate dark-theme styling and a bottom border.
+
+6.  **`ChannelList.tsx` Component:**
+    * **Generate:** Create `src/components/ChannelList.tsx`.
+    * **Props:** `channels: Channel[]`, `directMessages: DM[]`, `selectedChannelId: string | null`, `isDmView: boolean`, `onSelectChannel: (channelId: string, isDm: boolean) => void`.
+    * **Code:** Conditionally map over `channels` or `directMessages` based on `isDmView`. Render clickable list items (e.g., `# channel-name` or `👤 dm-username`). Highlight the `selectedChannelId`. Call `onSelectChannel` on click. Use Tailwind CSS.
+    * **Explain:** Detail the conditional rendering logic.
+
+7.  **`MainContentView.tsx` Component:**
+    * **Generate:** Create `src/components/MainContentView.tsx`.
+    * **Props:** `selectedChannelId: string | null`, `isDmView: boolean`. (Will later accept channel type).
+    * **Code:** For now, just display placeholder text indicating the selected channel/DM ID or a "Select a conversation" message. This will later conditionally render ChatView, TodoListView, etc.
+
+8.  **Data Fetching Hooks (`src/hooks/`):**
+    * **Generate:** Custom hook `useGroups()` fetching `/api/groups`, returning `{ groups, isLoading, error }`.
+    * **Generate:** Custom hook `useChannels(groupId: string | null)` fetching `/api/groups/{groupId}/channels`, returning `{ channels, isLoading, error }`. Fetch only if `groupId` is not null.
+    * **Generate:** Custom hook `useDirectMessages()` fetching `/api/dms`, returning `{ directMessages, isLoading, error }`.
+    * **Explain:** How do these hooks manage loading and error states? How does `useChannels` depend on `groupId`?
+
+9.  **Integrate State & Data (in `src/pages/ChatPage.tsx`):**
+    * **Generate:** Modify `ChatPage.tsx` to be the main container *inside* the `ProtectedRoute`.
+    * **Code:**
+        * Use `useState` for `selectedGroupId`, `selectedChannelId`, `isDmView`.
+        * Implement handlers `handleSelectGroup`, `handleSelectDMs`, `handleSelectChannel` to update these states.
+        * Call the `useGroups`, `useChannels` (passing `selectedGroupId`), and `useDirectMessages` hooks.
+        * Determine the `currentGroupName` based on `selectedGroupId` and fetched `groups`.
+        * Render `AppLayout`, passing fetched data (`groups`), state (`selectedGroupId`), and handlers (`handleSelectGroup`, `handleSelectDMs`) to `GroupList` (via props drilling or context).
+        * Render `ChannelColumn`, passing necessary props (`currentGroupName`, `channels`, `directMessages`, `selectedChannelId`, `isDmView`, `handleSelectChannel`).
+        * Render `MainContentView`, passing `selectedChannelId` and `isDmView`.
+    * **Explain:** Trace the flow of data and state updates when a user clicks a group icon and then a channel name.
+
+---
+**Phase 3: Real-Time Chat Integration**
+---
+
+**Objective:** Integrate the WebSocket hook and build the core chat message display and input components within the `MainContentView`.
+
+**To-Do List:**
+
+1.  **Context-Aware WebSocket Hook (`src/hooks/useWebSocket.ts`):**
+    * **Generate:** Modify the hook signature to `useWebSocket(context: { type: 'channel' | 'dm', id: string } | null)`.
+    * **Code:** Update `useEffect` to construct the WSS URL dynamically based on `context.type` and `context.id` (e.g., `/ws/channel/{id}` or `/ws/dm/{id}`). Connect only if `context` is not null. Ensure proper cleanup and reconnection logic based on context changes. The `sendMessage` function should accept `content: string`. (Assume backend determines context based on connection).
+    * **Explain:** How does the hook now handle connecting to different types of conversations?
+
+2.  **`ChatView.tsx` Component:**
+    * **Generate:** Create `src/components/ChatView.tsx`.
+    * **Props:** `channelId: string | null`, `dmId: string | null`. (Determine which based on `selectedChannelId` and `isDmView` in parent).
+    * **Code:**
+        * Determine the `context` object based on props.
+        * Call the `useWebSocket(context)` hook.
+        * Render `MessageList` component, passing the `messages` array from the hook.
+        * Render `MessageInput` component, passing the `sendMessage` function from the hook.
+    * **Explain:** How does `ChatView` orchestrate the WebSocket connection and message flow?
+
+3.  **`MessageList.tsx` Component:**
+    * **Generate:** Create `src/components/MessageList.tsx`.
+    * **Props:** `messages: Message[]`. (Define `Message` type with `id`, `content`, `senderName`, `timestamp`, `isOwnMessage`).
+    * **Code:** Map over the `messages` array. Render each message using a `ChatMessage.tsx` component (create next). Implement auto-scrolling to the bottom using `useRef` and `useEffect`. Add a placeholder for when `messages` is empty.
+    * **Explain:** How is auto-scrolling implemented?
+
+4.  **`ChatMessage.tsx` Component:**
+    * **Generate:** Create `src/components/ChatMessage.tsx`.
+    * **Props:** `message: Message`.
+    * **Code:** Render the message content, sender name (if not own message), and timestamp. Style messages differently based on `isOwnMessage` (e.g., align right/left, different background colors using Tailwind). Include sender avatar placeholder.
+    * **Explain:** How are own messages differentiated visually from others?
+
+5.  **`MessageInput.tsx` Component:**
+    * **Generate:** Create `src/components/MessageInput.tsx`.
+    * **Props:** `sendMessage: (content: string) => void`.
+    * **Code:** Implement a controlled `textarea` or `input` field. Include a "Send" button. Call `sendMessage` prop on button click or Enter key press. Clear the input after sending. Use Tailwind for styling.
+    * **Explain:** How is the input state managed and cleared after sending?
+
+6.  **Update `MainContentView.tsx`:**
+    * **Generate:** Modify `MainContentView.tsx` to conditionally render `ChatView` when `selectedChannelId` is set (and assuming the channel type is 'TEXT' or it's a DM). Pass the correct `channelId` or `dmId` prop.
+
+---
+*(Prompts for subsequent phases - AI Integration, WebRTC, Productivity Tools, Admin Features, Deployment - would follow, building upon this foundation.)*
+
+
+Act as an expert **Senior Frontend Developer** proficient in **React**, **TypeScript**, **Tailwind CSS**, and modern UI libraries.
+
+**Objective:**
+Expand the frontend by building the components for the "Notion-like" productivity features: To-Do Lists, Document Editing, and Kanban Boards. These components will be conditionally rendered by `MainContentView.tsx`.
+
+**Context:**
+We have completed the chat interface (`ChatView.tsx`). Now, we need to modify `MainContentView.tsx` to act as a router, displaying different components based on the selected channel's `type`. We also need to create the components for these new types.
+
+**To-Do List:**
+
+1.  **Update `src/types/index.ts`:**
+    * **Generate:** Add the new TypeScript interfaces required for the productivity features:
+        ```typescript
+        // in src/types/index.ts (add to existing types)
+
+        // For To-Do Lists
+        export interface Task {
+          id: string;
+          content: string;
+          isCompleted: boolean;
+          assigneeId?: string; // (Optional)
+        }
+        
+        // For Kanban Boards
+        export interface KanbanCard {
+          id: string;
+          content: string;
+          columnId: string;
+        }
+
+        export interface KanbanColumn {
+          id: string;
+          title: string;
+          cardIds: string[];
+        }
+
+        // For Documents
+        export interface DocumentPage {
+          id: string;
+          content: string; // This will store the rich text (HTML or Markdown)
+        }
+        ```
+    * **Explain:** Briefly explain the purpose of these new data models.
+
+2.  **`TodoListView.tsx` Component:**
+    * **Generate:** Create a new component `src/components/views/TodoListView.tsx`.
+    * **Props:** `channelId: string`. (Assume it fetches its own data or receives it via props).
+    * **Code:**
+        * (Placeholder) Use `useState` to manage a list of `Task` objects.
+        * Render a text input field and an "Add Task" button at the top.
+        * Map over the `tasks` array. For each task, render a `TodoItem.tsx` component (create next).
+    * **Explain:** How would this component fetch and update its list of tasks? (Briefly mention calling a new API endpoint like `/api/channels/{channelId}/tasks`).
+
+3.  **`TodoItem.tsx` Component:**
+    * **Generate:** Create a new component `src/components/views/TodoItem.tsx`.
+    * **Props:** `task: Task`, `onToggle: (taskId: string) => void`, `onDelete: (taskId: string) => void`.
+    * **Code:** Render a single list item with:
+        * A **Checkbox** (styled with Tailwind) that calls `onToggle`.
+        * The task `content`. Apply a `line-through` style if `task.isCompleted` is true.
+        * (Optional) A placeholder for an assignee avatar.
+        * A delete button (e.g., 'X' icon) that calls `onDelete`.
+    * **Explain:** How are Tailwind's utility classes used to show the "completed" state?
+
+4.  **`DocumentEditorView.tsx` Component (using a Library):**
+    * **Generate:** First, provide the `npm install` command for a lightweight rich-text editor:
+        ```bash
+        npm install react-quill @types/react-quill
+        ```
+    * **Generate:** Create `src/components/views/DocumentEditorView.tsx`.
+    * **Code:**
+        * Import `ReactQuill` from `react-quill` and its CSS (`import 'react-quill/dist/quill.snow.css';`).
+        * Use `useState` to manage the document's `content: string`.
+        * (Placeholder) Use `useEffect` to fetch the initial content for this document from an API (`/api/documents/{channelId}`).
+        * Render the `<ReactQuill theme="snow" value={content} onChange={setContent} />`.
+        * Add a "Save" button or logic for auto-saving (e.g., using a debounce hook).
+    * **Explain:** Why is it better to use a pre-built library like `ReactQuill` for document editing instead of a simple `<textarea>`?
+
+5.  **`KanbanView.tsx` Component (Static MVP):**
+    * **Generate:** Create `src/components/views/KanbanView.tsx`.
+    * **Props:** `channelId: string`.
+    * **Code:**
+        * (Placeholder) Use `useState` to manage `columns: KanbanColumn[]` and `cards: Record<string, KanbanCard>`.
+        * Render the layout using Tailwind CSS **Flexbox** to create a horizontal-scrolling container (`flex overflow-x-auto`).
+        * Map over the `columns` array. For each column, render a `div` (e.g., `w-72 bg-gray-800 rounded-lg p-2 m-2`).
+        * Inside each column, render the `column.title` in a header.
+        * Map over the `column.cardIds` and render a `KanbanCard.tsx` component (placeholder) for each card.
+    * **Explain:** How does Tailwind's `flex` and `overflow-x-auto` create the horizontal Kanban board layout? (Note: Drag-and-drop logic will be added later).
+
+6.  **Update `MainContentView.tsx` (The Router):**
+    * **Generate:** Show the *modified* `MainContentView.tsx` component.
+    * **Props:** `context: { type: 'channel' | 'dm', id: string, channelType?: 'TEXT' | 'VOICE' | 'TODO' | 'DOC' | 'KANBAN' } | null`.
+    * **Code:**
+        * Implement the conditional rendering logic:
+        ```typescript
+        if (!context) {
+          return <div className="p-4">Select a conversation or channel to start.</div>;
+        }
+
+        if (context.type === 'dm') {
+          return <ChatView context={context} />;
+        }
+
+        switch (context.channelType) {
+          case 'TEXT':
+            return <ChatView context={context} />;
+          case 'TODO':
+            return <TodoListView channelId={context.id} />;
+          case 'DOC':
+            return <DocumentEditorView channelId={context.id} />;
+          case 'KANBAN':
+            return <KanbanView channelId={context.id} />;
+          case 'VOICE':
+            return <div className="p-4">Voice Channel View - Coming Soon</div>; // Placeholder
+          default:
+            return <div className="p-4">Unknown channel type.</div>;
+        }
+        ```
+    * **Explain:** How does this `switch` statement act as the primary navigation for the main content area, allowing us to plug in different "apps" (Chat, Todos, etc.) based on the channel type?

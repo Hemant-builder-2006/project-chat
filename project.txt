@@ -1,0 +1,182 @@
+Project Plan: Self-Hosted AI Collaboration Workspace
+1. Project Vision & Goal
+Vision: To create a comprehensive, secure, and intelligent self-hosted collaboration platform that integrates real-time communication (chat, calls), productivity tools (tasks, documents, boards), and AI capabilities into a unified workspace.
+
+Goal: Develop an MVP (Minimum Viable Product) of this platform, delivered as an easily deployable package (Docker Compose). The core focus is on data sovereignty, security, user control, compliance facilitation, predictable costs (one-time license), and powerful integrated features.
+
+2. Target Audience & Value Proposition
+Target Clients:
+
+Security-conscious organizations (Legal, Healthcare, Finance, R&D, Tech).
+
+Teams needing integrated communication and project management tools without relying on multiple cloud SaaS products.
+
+Organizations requiring compliance with data residency regulations (GDPR, HIPAA, DPDPA).
+
+Businesses preferring predictable, one-time software costs (CapEx) over recurring subscriptions (OpEx).
+
+Both domestic (India - Delhi NCR region) and international (EU, US) markets.
+
+Core Value Proposition:
+
+Unified Workspace: Combines chat, calls, tasks, documents, and boards in one place.
+
+Complete Data Control: Self-hosted model ensures data never leaves the client's infrastructure.
+
+Enhanced Privacy & Security: No third-party cloud dependency for core data; includes private AI options.
+
+Compliance Ready: Facilitates adherence to strict data protection regulations.
+
+Cost Predictability: One-time perpetual license with optional annual support.
+
+AI-Powered Productivity: Integrated AI assistant and smart search across all content types.
+
+Customizable Structure: Admins can create tailored Groups and use templates.
+
+3. Key MVP Features
+3.1 Core Communication:
+Multi-Group Architecture: Support for multiple distinct "Groups" (like Discord Servers).
+
+Channels (within Groups):
+
+Text Channel: Real-time chat with threads, reactions, @mentions, rich text, file sharing.
+
+Voice Channel: Persistent, joinable audio calls.
+
+Direct Messages (DMs): Private 1:1 and group conversations outside Groups.
+
+User Presence: Online, Idle, Offline status indicators.
+
+3.2 Calling & Meetings (MVP):
+1:1 Voice & Video Calls: Within DMs (WebRTC).
+
+Group Voice Channel Joining: Via Voice Channels.
+
+Basic Group Video Meetings: Ad-hoc video calls (WebRTC).
+
+Screen Sharing: During calls/meetings.
+
+Core Controls: Mute/Unmute, Video On/Off.
+
+Backend Signaling: Via WebSockets.
+
+3.3 Productivity Suite (Notion-like MVP):
+Channel Types: Admins can create:
+
+Text Channel (as above).
+
+Voice Channel (as above).
+
+To-Do List Channel: Shared checklist with task creation, assignment (optional), and completion status.
+
+Document Channel: Simple collaborative rich-text editor page for notes/wikis.
+
+Kanban Channel: Basic board with customizable columns and draggable task cards.
+
+3.4 Admin & Management:
+Platform Admin: Manages the entire instance.
+
+Group Admin: Manages specific Groups (invites, channel creation/typing, role management within the group).
+
+User Management: Invite users, assign to groups, deactivate users (via SQLAdmin).
+
+Group Templates: Admins can create and apply templates (predefined channel structures/roles) when creating new Groups.
+
+License Key System: For software activation.
+
+3.5 AI Capabilities (MVP):
+AI Assistant (@AI): Integrated chatbot.
+
+Self-Hosted LLMs (Ollama): Ensures AI data privacy.
+
+External API Option: Connect to OpenAI/Claude (client's key).
+
+Conversation Summarization: For text channels.
+
+AI Smart Search (RAG): Semantic search across text channels, uploaded files, and Document Channel content (permission-aware).
+
+3.6 Security & Deployment:
+Self-Hosted Model: Deployment via Docker Compose.
+
+Secure Transport: Enforced HTTPS/WSS.
+
+Encryption at Rest: Configurable for sensitive DB fields.
+
+Secure Authentication: JWT (via FastAPI backend).
+
+3.7 Client Application:
+Platform: Responsive Web Application built with React + TypeScript.
+
+Layout: 3-Column Dark Theme (Groups | Channels/DMs | Main View).
+
+Format: Installable Progressive Web App (PWA).
+
+4. Technology Stack
+Backend: Python, FastAPI, SQLAlchemy (async), SQLAdmin
+
+Frontend: JavaScript/TypeScript, React.js (as PWA), Tailwind CSS
+
+Database: PostgreSQL (for relational data, users, groups, channels, tasks, documents metadata, kanban metadata)
+
+Cache/PubSub: Redis
+
+Real-time: WebSockets (Signaling/Chat), WebRTC (Audio/Video)
+
+AI: Ollama, LangChain/LlamaIndex, ChromaDB (Vector DB for RAG)
+
+Deployment: Docker, Docker Compose, Nginx (Reverse Proxy)
+
+WebRTC Infra: STUN/TURN Server (e.g., Coturn)
+
+5. Development Approach
+Frontend First (Iterative): Start building the core UI layout and components, connecting to mock data or basic backend endpoints as they become available.
+
+AI-Assisted Development: Utilize AI code assistants (GitHub Copilot) heavily for generating boilerplate code, standard functions, configurations, and tests.
+
+Human Architect Role: Developer focuses on high-level architecture (especially the expanded DB schema), complex logic (multi-group permissions, WebRTC signaling, RAG orchestration, Notion-like feature interactions), integration between components, security validation, testing strategy, and overall product vision.
+
+Phased Implementation (Frontend Lead):
+
+Frontend Setup, Auth UI, Basic Layout.
+
+Frontend Data Fetching Hooks & State Management.
+
+Frontend Real-Time Chat Integration (WebSocket).
+
+Backend Core (DB Models, Auth API, WS Endpoint).
+
+Backend Productivity Features (APIs for Todos, Docs, Kanban).
+
+Frontend Productivity Views (TodoListView, DocumentEditorView, KanbanView).
+
+Backend Admin & Deployment Setup (SQLAdmin, Docker).
+
+Backend AI Integration (Ollama, RAG).
+
+Frontend AI Integration (UI for Search, Summaries).
+
+Backend & Frontend WebRTC Integration.
+
+Polish, Security Hardening, Business Logic (Licensing).
+
+6. Deployment & Access
+Model: Client installs the entire stack via Docker Compose on their own server infrastructure (on-premise or private cloud).
+
+Remote Access: Secured via company VPN or a Reverse Proxy (with authentication), accessible via desktop and mobile PWA.
+
+7. Future Considerations (Post-MVP)
+End-to-End Encryption (E2EE).
+
+Native Mobile Apps (iOS/Android).
+
+Advanced Integrations (Calendars, External Project Tools).
+
+More Productivity Tools (Databases like Notion, Spreadsheets).
+
+Real-time Collaborative Editing in Document Channels.
+
+Advanced AI Features (Proactive suggestions, workflow automation).
+
+Granular Permissions & Role Customization.
+
+Multi-Server Scalability (Kubernetes).
