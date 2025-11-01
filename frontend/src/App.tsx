@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { WebRTCProvider } from './contexts/WebRTCContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
 import RegistrationPage from './pages/RegistrationPage';
@@ -31,10 +32,11 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegistrationPage />} />
+        <WebRTCProvider>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegistrationPage />} />
           
           {/* Protected Routes */}
           <Route
@@ -52,6 +54,7 @@ function App() {
           {/* 404 Fallback */}
           <Route path="*" element={<Navigate to="/app" replace />} />
         </Routes>
+        </WebRTCProvider>
       </AuthProvider>
     </BrowserRouter>
   );

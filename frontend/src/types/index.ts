@@ -14,7 +14,7 @@ export interface Group {
 }
 
 // Channel types
-export type ChannelType = 'TEXT' | 'TODO' | 'KANBAN' | 'VOICE' | 'VIDEO';
+export type ChannelType = 'TEXT' | 'TODO' | 'DOC' | 'KANBAN' | 'VOICE' | 'VIDEO';
 
 export interface Channel {
   id: string;
@@ -77,4 +77,71 @@ export interface WebSocketContext {
 export interface WebSocketMessage {
   type: 'message' | 'typing' | 'presence';
   data: any;
+}
+
+// Productivity Feature Types
+
+/**
+ * Task Interface - For To-Do List Channels
+ * 
+ * Purpose: Represents a single task item in a todo list
+ * - id: Unique identifier for the task
+ * - content: The task description/text
+ * - isCompleted: Tracks completion status
+ * - assigneeId: Optional user assignment for collaboration
+ */
+export interface Task {
+  id: string;
+  content: string;
+  isCompleted: boolean;
+  assigneeId?: string;
+  createdAt?: string;
+  completedAt?: string;
+}
+
+/**
+ * KanbanCard Interface - For Kanban Board Channels
+ * 
+ * Purpose: Represents a card in a Kanban column
+ * - id: Unique card identifier
+ * - content: Card text/description
+ * - columnId: Reference to parent column
+ */
+export interface KanbanCard {
+  id: string;
+  content: string;
+  columnId: string;
+  order?: number;
+  assigneeId?: string;
+  createdAt?: string;
+}
+
+/**
+ * KanbanColumn Interface - For Kanban Board Channels
+ * 
+ * Purpose: Represents a column in a Kanban board (e.g., "To Do", "In Progress", "Done")
+ * - id: Unique column identifier
+ * - title: Column name
+ * - cardIds: Array of card IDs in this column (for ordering)
+ */
+export interface KanbanColumn {
+  id: string;
+  title: string;
+  cardIds: string[];
+  order?: number;
+}
+
+/**
+ * DocumentPage Interface - For Document Channels
+ * 
+ * Purpose: Represents a rich-text document
+ * - id: Unique document identifier
+ * - content: HTML/Markdown content from rich text editor
+ */
+export interface DocumentPage {
+  id: string;
+  title?: string;
+  content: string;
+  lastEditedBy?: string;
+  lastEditedAt?: string;
 }

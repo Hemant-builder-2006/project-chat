@@ -6,6 +6,7 @@ import MainContentView from '../components/MainContentView';
 import { useGroups } from '../hooks/useGroups';
 import { useChannels } from '../hooks/useChannels';
 import { useDirectMessages } from '../hooks/useDirectMessages';
+import { ChannelType } from '../types';
 
 /**
  * ChatPage Component
@@ -34,6 +35,7 @@ const ChatPage: React.FC = () => {
   // State for navigation
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+  const [selectedChannelType, setSelectedChannelType] = useState<ChannelType | undefined>(undefined);
   const [isDmView, setIsDmView] = useState(false);
 
   // Fetch data using custom hooks
@@ -76,6 +78,11 @@ const ChatPage: React.FC = () => {
     // Ensure isDmView matches the selection type
     if (isDm && !isDmView) {
       setIsDmView(true);
+      setSelectedChannelType(undefined);
+    } else if (!isDm) {
+      // Find the channel type from the channels array
+      const selectedChannel = channels.find(c => c.id === channelId);
+      setSelectedChannelType(selectedChannel?.type);
     }
   };
 
@@ -148,6 +155,7 @@ const ChatPage: React.FC = () => {
         <MainContentView
           selectedChannelId={selectedChannelId}
           isDmView={isDmView}
+          channelType={selectedChannelType}
         />
       }
     />

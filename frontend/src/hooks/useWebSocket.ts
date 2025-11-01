@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Message, WebSocketContext } from '../types';
+import { useWebRTCContext } from '../contexts/WebRTCContext';
 
 interface UseWebSocketResult {
   messages: Message[];
@@ -36,6 +37,9 @@ export const useWebSocket = (context: WebSocketContext | null): UseWebSocketResu
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const contextRef = useRef<WebSocketContext | null>(context);
+  
+  // Get WebRTC context for signaling
+  const webrtcContext = useWebRTCContext();
 
   // Update context ref when it changes
   useEffect(() => {
@@ -49,9 +53,10 @@ export const useWebSocket = (context: WebSocketContext | null): UseWebSocketResu
     if (!contextRef.current) return;
 
     const { type, id } = contextRef.current;
+    // Backend WebSocket routes: /ws/channel/{channel_id} or /ws/dm/{other_user_id}
     const wsUrl = `${import.meta.env.VITE_WS_URL}/ws/${type}/${id}`;
     
-    // Get token for authentication
+    // Get token for authentication (backend expects token as query param)
     const token = localStorage.getItem('accessToken');
     const wsUrlWithToken = token ? `${wsUrl}?token=${token}` : wsUrl;
 
@@ -59,7 +64,7 @@ export const useWebSocket = (context: WebSocketContext | null): UseWebSocketResu
       const ws = new WebSocket(wsUrlWithToken);
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
+        console.log('WebSocket connected to', type, id);
         setIsConnected(true);
         // Clear any pending reconnection attempts
         if (reconnectTimeoutRef.current) {
@@ -72,30 +77,94 @@ export const useWebSocket = (context: WebSocketContext | null): UseWebSocketResu
         try {
           const data = JSON.parse(event.data);
           
-          // Handle different message types
+          // Handle different message types from backend
+          
+          // Chat messages
           if (data.type === 'message') {
-            const message: Message = {
-              id: data.id || Date.now().toString(),
+            const newMessage: Message = {
+              id: data.id,
               content: data.content,
-              senderName: data.sender_name,
+              senderName: data.sender_username,
               senderId: data.sender_id,
-              timestamp: data.timestamp || new Date().toISOString(),
-              isOwnMessage: data.is_own_message || false,
+              timestamp: data.created_at,
+              isOwnMessage: data.sender_id === localStorage.getItem('userId'),
               avatarUrl: data.avatar_url,
             };
-            setMessages(prev => [...prev, message]);
-          } else if (data.type === 'history') {
-            // Load message history
-            const historyMessages: Message[] = data.messages.map((msg: any) => ({
-              id: msg.id,
-              content: msg.content,
-              senderName: msg.sender_name,
-              senderId: msg.sender_id,
-              timestamp: msg.timestamp,
-              isOwnMessage: msg.is_own_message,
-              avatarUrl: msg.avatar_url,
-            }));
-            setMessages(historyMessages);
+            setMessages((prev) => [...prev, newMessage]);
+            return;
+          }
+          
+          // User joined/left events
+          if (data.type === 'user_joined' || data.type === 'user_left') {
+            console.log(`User ${data.username} ${data.type === 'user_joined' ? 'joined' : 'left'}`);
+            // Could show a notification or update presence
+            return;
+          }
+          
+          // Online users list
+          if (data.type === 'online_users') {
+            console.log('Online users:', data.users);
+            // Could update UI to show online status
+            return;
+          }
+          
+          // Typing indicators
+          if (data.type === 'typing' || data.type === 'dm_typing') {
+            console.log(`${data.username} is ${data.is_typing ? 'typing' : 'stopped typing'}`);
+            // Could show typing indicator in UI
+            return;
+          }
+          
+          // WebRTC signaling messages
+          if (data.type === 'webrtc_offer') {
+            console.log('Received WebRTC offer from:', data.from_user_id);
+            if (webrtcContext.onOffer) {
+              webrtcContext.onOffer(data.data, data.from_user_id);
+            }
+            return;
+          }
+          
+          if (data.type === 'webrtc_answer') {
+            console.log('Received WebRTC answer from:', data.from_user_id);
+            if (webrtcContext.onAnswer) {
+              webrtcContext.onAnswer(data.data, data.from_user_id);
+            }
+            return;
+          }
+          
+          if (data.type === 'webrtc_ice_candidate') {
+            console.log('Received ICE candidate from:', data.from_user_id);
+            if (webrtcContext.onIceCandidate) {
+              webrtcContext.onIceCandidate(data.data, data.from_user_id);
+            }
+            return;
+          }
+          
+          // Error messages from backend
+          if (data.type === 'error') {
+            console.error('WebSocket error message:', data.message);
+            // Could show error notification to user
+            return;
+          }
+          
+          // DM messages
+          if (data.type === 'dm_message') {
+            const newMessage: Message = {
+              id: data.id,
+              content: data.content,
+              senderName: data.sender_username,
+              senderId: data.sender_id,
+              timestamp: data.created_at || new Date().toISOString(),
+              isOwnMessage: data.sender_id === localStorage.getItem('userId'),
+            };
+            setMessages((prev) => [...prev, newMessage]);
+            return;
+          }
+          
+          // DM user online/offline
+          if (data.type === 'dm_user_online' || data.type === 'dm_user_offline') {
+            console.log(`DM user ${data.username} is ${data.type === 'dm_user_online' ? 'online' : 'offline'}`);
+            return;
           }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -128,18 +197,39 @@ export const useWebSocket = (context: WebSocketContext | null): UseWebSocketResu
 
   /**
    * Send a message through WebSocket
+   * Backend expects: { "type": "message", "content": "..." }
    */
   const sendMessage = useCallback((content: string) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       const message = {
-        type: 'message',
+        type: 'message',  // For channel messages
         content,
       };
+      // Use 'dm_message' type if in DM context
+      if (contextRef.current?.type === 'dm') {
+        message.type = 'dm_message';
+      }
       wsRef.current.send(JSON.stringify(message));
     } else {
       console.error('WebSocket is not connected');
     }
   }, []);
+
+  /**
+   * Register WebRTC signal sender with context
+   * This allows useWebRTC hook to send WebRTC signals through WebSocket
+   */
+  useEffect(() => {
+    const sendSignal = (signal: any) => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(signal));
+      } else {
+        console.error('WebSocket is not connected, cannot send signal');
+      }
+    };
+    
+    webrtcContext.registerSignalSender(sendSignal);
+  }, [webrtcContext]);
 
   /**
    * Effect to manage WebSocket connection

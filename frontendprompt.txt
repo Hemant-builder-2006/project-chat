@@ -275,3 +275,65 @@ We have completed the chat interface (`ChatView.tsx`). Now, we need to modify `M
         }
         ```
     * **Explain:** How does this `switch` statement act as the primary navigation for the main content area, allowing us to plug in different "apps" (Chat, Todos, etc.) based on the channel type?
+
+    phase 5 
+**Context:**
+We have completed Phases 1-4. We have a 3-column layout, auth, data fetching hooks, and a WebSocket hook (`useWebSocket`) for real-time chat. We now need to use this existing WebSocket connection for WebRTC **signaling** and build the UI components for calls and meetings.
+
+**To-Do List:**
+
+1.  **`useWebRTC.ts` Hook (The Core Logic):**
+    * **Generate:** Create a new custom hook `src/hooks/useWebRTC.ts`.
+    * **Code:** This hook will manage the `RTCPeerConnection` objects. It should:
+        * Manage state: `localStream: MediaStream | null`, `remoteStreams: Record<string, MediaStream>`, `isMuted: boolean`, `isVideoEnabled: boolean`, `isScreenSharing: boolean`.
+        * Use `useRef` for the `RTCPeerConnection` instances (you may need a map of peer connections, e.g., `peerConnectionsRef.current: Record<string, RTCPeerConnection>`).
+        * Implement functions:
+            * `joinVoiceChannel(channelId: string)`: Gets user audio, creates offers for all users in the channel.
+            * `startCall(targetUserId: string)`: Gets user video/audio, creates an offer for a 1:1 call.
+            * `acceptCall(offer, senderId)`: Accepts an incoming offer and sends an answer.
+            * `endCall()`: Closes all peer connections and stops media tracks.
+            * `toggleMute()`, `toggleVideo()`.
+            * `startScreenShare()`: Uses `getDisplayMedia()` and replaces the video track.
+            * `stopScreenShare()`: Replaces the screen track back with the camera track.
+    * **Explain:** How will this hook interact with the *existing* `useWebSocket` hook's `sendMessage` function to send signaling messages (offers, answers, ICE candidates) to the backend?
+
+2.  **Modify `useWebSocket.ts` (For Signaling):**
+    * **Generate:** Show the modification to the `onmessage` handler inside `src/hooks/useWebSocket.ts`.
+    * **Code:** It needs to detect incoming WebRTC signals (e.g., `if (message.type === 'webrtc_offer') { ... }`).
+    * **Logic:** Instead of adding these to the `messages` array, it should call functions (e.g., `handleOffer`, `handleAnswer`, `handleNewICECandidate`) that will be passed in from the `useWebRTC` hook or managed via a shared state/context.
+    * **Explain:** How can we use a global state (like Zustand) or React Context to allow the `useWebSocket` hook and `useWebRTC` hook to communicate with each other without being in the same component?
+
+3.  **`VideoCallView.tsx` Component (Modal or View):**
+    * **Generate:** Create `src/components/views/VideoCallView.tsx`.
+    * **Code:** This component is for 1:1 or group *video* meetings.
+    * **UI:** Create a grid layout using Tailwind CSS to display multiple video feeds.
+    * **Logic:** Use `useRef` for each `<video>` element. It should use the `useWebRTC` hook to get `localStream` and `remoteStreams` and attach them to the video elements.
+    * **Controls:** Render buttons (Mute, Video Off, Share Screen, End Call) that call the corresponding functions on the `useWebRTC` hook.
+    * **Explain:** How does the `ontrack` event on the `RTCPeerConnection` (managed in the hook) dynamically add new video feeds to this component?
+
+4.  **`VoiceChannelUI.tsx` Component (In Sidebar):**
+    * **Generate:** Create `src/components/views/VoiceChannelUI.tsx` for `VOICE` channel types. This will render in the *main* content view (Column 3).
+    * **Code:**
+        * Display the voice channel name (e.g., "🎧 General Voice").
+        * Show a list of user avatars/names currently in the channel (similar to `image_4a962b.png`).
+        * Include a "Join Voice" / "Leave Voice" button.
+        * When "Join Voice" is clicked, it should call `useWebRTC.joinVoiceChannel(channelId)` (with audio-only).
+        * Render Mute/Unmute and End Call controls while connected.
+    * **Explain:** How does this component differ from `VideoCallView` (e.g., it's audio-focused and designed to be persistent while the user browses other text channels)?
+
+5.  **Update `MainContentView.tsx` (Router):**
+    * **Generate:** Show the modified `MainContentView.tsx`.
+    * **Code:** Add the new `case 'VOICE':` to the `switch` statement:
+        ```typescript
+        // ...
+        switch (context.channelType) {
+          // ... (TEXT, TODO, DOC, KANBAN cases) ...
+          case 'VOICE':
+            return <VoiceChannelUI channelId={context.id} />;
+          // ...
+        }
+        ```
+    * **Generate:** Add UI elements (e.g., a "Call" button in the `ChatView` header for DMs) that would trigger the 1:1 `startCall` function.
+
+6.  **STUN/TURN Explanation Request:**
+    * **Explain:** Finally, briefly explain *why* this frontend code will still require a **STUN/TURN server** (like Coturn) on the backend to work reliably for users outside the same office network.

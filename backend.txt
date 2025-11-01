@@ -1,0 +1,259 @@
+# Backend Development Prompts: Self-Hosted AI Collaboration Workspace
+
+## Project Overview
+
+**Goal:** Build the backend (FastAPI/Python) for a secure, self-hosted, real-time collaboration workspace with multi-group support, integrated communication (chat, calls), productivity tools (tasks, documents, boards), and AI capabilities.
+**Tech Stack:** FastAPI, SQLAlchemy (async), PostgreSQL, Redis, WebSockets, WebRTC (signaling), Ollama, LangChain/LlamaIndex, ChromaDB, Docker, Nginx, SQLAdmin, JWT.
+**Frontend:** React PWA (developed separately).
+
+---
+## Phase 1: Backend Foundation & Multi-Group Models
+
+**Objective:** Set up the FastAPI project, define core database models for the multi-group structure and productivity features using SQLAlchemy async, configure the database connection.
+
+```text
+Act as an expert **Senior Backend Engineer** specializing in **FastAPI**, asynchronous **SQLAlchemy** with PostgreSQL, **Pydantic**, and scalable application architecture.
+
+**Objective:** Generate the foundational backend code for a multi-group collaboration workspace, including database models and initial setup. Provide both code and explanations.
+
+**To-Do List:**
+
+1.  **Project Structure:**
+    * **Generate:** A standard FastAPI project directory structure (`app/api/`, `app/models/`, `app/schemas/`, `app/core/`, `app/db/`, `app/services/`, `main.py`, `.env`, `requirements.txt`). Include basic `__init__.py` files.
+    * **Explain:** Briefly justify the structure.
+2.  **Database Models (`app/models/`):**
+    * **Generate:** Python code for all core models using SQLAlchemy's async ORM (`AsyncAttrs`). Use UUID primary keys.
+        * `User` model (`user.py`): `id`, `username`, `email`, `hashed_password`, `is_active`, `is_superuser`.
+        * `Group` model (`group.py`): `id`, `name`, `owner_id` (FK to User). Add `members` relationship (many-to-many via `Membership`). Add `channels` relationship (one-to-many).
+        * `Membership` model (`membership.py`): `user_id` (FK), `group_id` (FK), `role` (string: e.g., 'admin', 'member'). Define composite primary key or unique constraint. Add relationships back to `User` and `Group`.
+        * `Channel` model (`channel.py`): `id`, `name`, `group_id` (FK to Group), `type` (string: 'TEXT', 'VOICE', 'TODO', 'DOC', 'KANBAN'). Add `messages`, `tasks`, `document_page`, `kanban_columns` relationships (one-to-many/one).
+        * `Message` model (`message.py`): `id`, `content`, `created_at`, `user_id` (FK), `channel_id` (FK). Add `parent_message_id` (FK to self, for threads, optional nullable). Add `reactions` relationship (one-to-many).
+        * `Reaction` model (`reaction.py`): `id`, `emoji`, `user_id` (FK), `message_id` (FK). Define unique constraint on (user_id, message_id, emoji).
+        * `Task` model (`task.py`): `id`, `content`, `is_completed`, `channel_id` (FK), `assignee_id` (FK to User, optional), `order` (integer for sorting).
+        * `DocumentPage` model (`document.py`): `id`, `channel_id` (FK, unique), `content` (Text), `last_edited_by_id` (FK to User, optional).
+        * `KanbanColumn` model (`kanban.py`): `id`, `title`, `channel_id` (FK), `order` (integer). Add `cards` relationship.
+        * `KanbanCard` model (`kanban.py`): `id`, `content`, `column_id` (FK), `order` (integer).
+    * **Relationships:** Ensure all `relationship()` calls have correct `back_populates` arguments.
+    * **Explain:** Why is the `Membership` table necessary? How does the `Channel.type` field enable different functionalities? Explain the self-referencing FK for message threads.
+3.  **Pydantic Schemas (`app/schemas/`):**
+    * **Generate:** Corresponding Pydantic schemas for **all** models (Create, Read, Update where applicable). Ensure sensitive fields (passwords) are excluded from Read schemas. Use Enums for `Channel.type` if appropriate.
+    * **Explain:** How will schemas be used for API input validation and output formatting?
+4.  **Database Session (`app/db/session.py`):**
+    * **Generate:** Standard code for async SQLAlchemy engine (`create_async_engine` for PostgreSQL), sessionmaker (`async_sessionmaker`), and the `get_db` async dependency function. Load `DATABASE_URL` from environment variables.
+5.  **Core `main.py`:**
+    * **Generate:** The main FastAPI app file. Include basic CORS middleware configuration (loading origins from env vars). Add placeholder comments for API routers and lifespan events.
+6.  **Requirements (`requirements.txt`):**
+    * **Generate:** List the initial core dependencies: `fastapi`, `uvicorn[standard]`, `sqlalchemy[asyncio]`, `asyncpg`, `pydantic[email]`, `python-dotenv`, `alembic`.
+
+
+    Act as an expert **Python Backend Developer** using **FastAPI**, **SQLAlchemy (async)**, **JWT**, and **Pydantic**.
+
+**Objective:** Implement user authentication and core API endpoints for managing groups, channels, and memberships.
+
+**Context:** Phase 1 (Models, Schemas, DB Setup) is complete. We need to build the API layer for user management and basic workspace structure.
+
+**To-Do List:**
+
+1.  **Security Utilities (`app/core/security.py`):**
+    * **Generate:** Functions for password hashing (`verify_password`, `get_password_hash` using `passlib[bcrypt]`).
+    * **Generate:** Functions for JWT creation and validation (`create_access_token`, `create_refresh_token`, `verify_token` using `python-jose`). Load secrets/config from env vars.
+2.  **Authentication Endpoints (`app/api/endpoints/auth.py`):**
+    * **Generate:** `/register` endpoint (POST): Takes `UserCreate`, hashes password, saves user, returns `UserRead`. Handle duplicate username/email errors.
+    * **Generate:** `/token` endpoint (POST): Takes `OAuth2PasswordRequestForm`, verifies credentials, returns `Token` (access + refresh).
+    * **Generate:** `/refresh` endpoint (POST): Takes refresh token, verifies it, issues new access token.
+    * **Generate:** `/me` endpoint (GET): Uses `get_current_user` dependency, returns `UserRead`.
+    * **Generate:** `get_current_user` dependency: Verifies access token from `Authorization: Bearer` header, fetches user from DB.
+3.  **Group Management Endpoints (`app/api/endpoints/groups.py`):**
+    * **Generate:** `/groups` (POST): Creates a new `Group`. Requires auth. Sets creator as owner and adds them as admin member via `Membership` table. Returns `GroupRead`.
+    * **Generate:** `/groups` (GET): Lists `Group`s the current user is a member of. Requires auth. Returns `List[GroupRead]`.
+    * **Generate:** `/groups/{group_id}` (GET): Gets details of a specific group user is a member of. Requires auth. Returns `GroupRead`.
+    * **Generate:** `/groups/{group_id}/members` (POST): Invites/adds a user to a group (requires group admin role - implement basic permission check). Takes `user_id` and `role`. Creates `Membership` entry.
+    * **Generate:** `/groups/{group_id}/members` (GET): Lists members of a group. Requires auth (group member).
+4.  **Channel Management Endpoints (`app/api/endpoints/channels.py`):**
+    * **Generate:** `/groups/{group_id}/channels` (POST): Creates a new `Channel` within a specific group. Requires auth (group member, maybe admin role). Takes `ChannelCreate` schema (including `type`). Returns `ChannelRead`.
+    * **Generate:** `/groups/{group_id}/channels` (GET): Lists channels within a specific group. Requires auth (group member). Returns `List[ChannelRead]`.
+5.  **API Routers:**
+    * **Generate:** Set up `APIRouter` instances for auth, groups, channels.
+    * **Generate:** Update `main.py` to include these routers.
+6.  **Requirements:** Add `passlib[bcrypt]` and `python-jose[cryptography]` to `requirements.txt`.
+
+Act as an expert **Python Backend Developer** specializing in **FastAPI** and **WebSockets**.
+
+**Objective:** Implement the real-time WebSocket layer for chat messaging and basic signaling.
+
+**Context:** Phase 2 (Auth & Core APIs) is complete. We need the WebSocket infrastructure.
+
+**To-Do List:**
+
+1.  **Connection Manager (`app/services/ws_manager.py`):**
+    * **Generate:** Implement the `ConnectionManager` class.
+    * **Code:** Use `Dict[str, List[WebSocket]]` for channel connections AND `Dict[str, WebSocket]` to map `user_id` to a single WebSocket (for DMs/signaling).
+    * **Methods:**
+        * `connect(websocket: WebSocket, channel_or_dm_id: str, user_id: str)`: Accepts connection, adds to relevant channel list AND user map.
+        * `disconnect(websocket: WebSocket, channel_or_dm_id: str, user_id: str)`: Removes from channel list AND user map.
+        * `broadcast_to_channel(message: dict, channel_id: str, sender: WebSocket = None)`: Sends JSON message to all in a channel (excluding sender).
+        * `send_personal_message(message: dict, user_id: str)`: Sends JSON message directly to a specific user via the user map. Handle user not connected.
+    * **Explain:** Why do we need both channel-based and user-based connection tracking? Explain error handling during broadcast/send.
+2.  **WebSocket Endpoint (`app/api/endpoints/rt_gateway.py`):**
+    * **Generate:** Create a single primary WebSocket endpoint, e.g., `/ws`. Authentication should happen during connection.
+    * **Code:**
+        * Accept connection, require JWT token in query param or subprotocol for authentication. Fetch user via `get_current_user` logic. If invalid, close connection.
+        * **Subscription:** Expect initial messages from client specifying which channels/DMs they want to subscribe to (e.g., `{"type": "subscribe", "channel_id": "..."}`). Call `manager.connect` for each valid subscription.
+        * **Message Handling Loop:** Listen for incoming JSON messages.
+        * **Routing:** Based on message `type`:
+            * `chat_message`: Extract `channel_id` and `content`. Save message to DB (using `get_db` session). Broadcast message back via `manager.broadcast_to_channel`.
+            * `dm_message`: Extract `target_user_id` and `content`. Save DM to DB (requires DM model/logic). Send via `manager.send_personal_message` to target and echo back to sender.
+            * `webrtc_signal`: (Placeholder) Extract `target_user_id` and payload (`offer`, `answer`, `icecandidate`). Send via `manager.send_personal_message`.
+            * `unsubscribe`: Remove user from a channel via `manager.disconnect`.
+        * **Disconnect:** Use `try...finally` to ensure `manager.disconnect` is called for all subscribed channels/DMs when the client disconnects.
+    * **Explain:** Why is a single gateway endpoint with subscription messages often preferred over multiple endpoints per channel for scalability? How is authentication handled securely on WebSocket connection?
+3.  **Update `main.py`:** Include the `rt_gateway` router.
+4.  **Requirements:** Add `websockets` library if not implicitly included via uvicorn standard.
+
+
+Act as an expert **Python Backend Developer** using **FastAPI** and **SQLAlchemy (async)**.
+
+**Objective:** Implement API endpoints for the productivity features (Todos, Docs, Kanban).
+
+**Context:** Phase 3 (WebSockets) is complete. Models for Task, DocumentPage, KanbanColumn, KanbanCard exist. We need APIs to manage them. Assume all endpoints require authentication and basic authorization (e.g., user must be member of the group the channel belongs to - implement simple checks).
+
+**To-Do List:**
+
+1.  **Todo Endpoints (`app/api/endpoints/todos.py`):**
+    * **Generate:** `POST /api/channels/{channel_id}/tasks`: Creates a new `Task` in a 'TODO' channel. Takes `TaskCreate` schema. Returns `TaskRead`.
+    * **Generate:** `GET /api/channels/{channel_id}/tasks`: Lists all `Task`s for a 'TODO' channel. Returns `List[TaskRead]`.
+    * **Generate:** `PUT /api/tasks/{task_id}`: Updates a `Task` (e.g., content, is_completed, assignee_id). Takes `TaskUpdate` schema. Returns `TaskRead`.
+    * **Generate:** `DELETE /api/tasks/{task_id}`: Deletes a `Task`. Returns status code 204.
+    * **Explain:** How should endpoint logic verify that the `channel_id` corresponds to a channel of type 'TODO'?
+2.  **Document Endpoints (`app/api/endpoints/documents.py`):**
+    * **Generate:** `GET /api/channels/{channel_id}/document`: Gets the `DocumentPage` content for a 'DOC' channel. Returns `DocumentPageRead`. Handles creation if it doesn't exist yet.
+    * **Generate:** `PUT /api/channels/{channel_id}/document`: Updates the `content` of a `DocumentPage`. Takes `DocumentPageUpdate` schema. Returns `DocumentPageRead`. (Consider using PATCH).
+    * **Explain:** Since there's only one document per 'DOC' channel, why is using the `channel_id` in the URL sufficient?
+3.  **Kanban Endpoints (`app/api/endpoints/kanban.py`):**
+    * **Generate:** `GET /api/channels/{channel_id}/kanban`: Gets all `KanbanColumn`s and their associated `KanbanCard`s for a 'KANBAN' channel. Structure the response appropriately (e.g., nested). Returns custom Kanban board schema.
+    * **Generate:** `POST /api/channels/{channel_id}/kanban/columns`: Creates a new `KanbanColumn`. Returns `KanbanColumnRead`.
+    * **Generate:** `POST /api/kanban/columns/{column_id}/cards`: Creates a new `KanbanCard` in a specific column. Returns `KanbanCardRead`.
+    * **Generate:** `PUT /api/kanban/cards/{card_id}`: Updates a `KanbanCard` (e.g., content).
+    * **Generate:** `PUT /api/kanban/cards/{card_id}/move`: Moves a card to a different column and/or position (requires handling `order`). Takes target `column_id` and `new_order`.
+    * **Explain:** How would you handle maintaining the correct `order` of columns and cards within columns during creation and moves?
+4.  **API Routers:**
+    * **Generate:** Set up `APIRouter` instances for todos, documents, kanban.
+    * **Generate:** Update `main.py` to include these routers.
+
+
+    Act as an expert **DevOps Engineer** and **Backend Developer** familiar with **FastAPI**, **SQLAlchemy**, **SQLAdmin**, **Docker**, **Docker Compose**, and **Nginx**.
+
+**Objective:** Integrate the admin panel and containerize the full application stack (including AI/DB services) for deployment.
+
+**Context:** Phase 4 (Productivity APIs) is complete. We need the admin UI and deployment configurations.
+
+**To-Do List:**
+
+1.  **SQLAdmin Integration (`app/admin.py`, `main.py`):**
+    * **Generate:** Code in `app/admin.py` to create `ModelView` classes for **all** current SQLAlchemy models (`User`, `Group`, `Membership`, `Channel`, `Message`, `Task`, `DocumentPage`, `KanbanColumn`, `KanbanCard`). Configure displayed columns, search fields, etc. appropriately. Hide sensitive fields.
+    * **Generate:** Code in `main.py` to initialize `SQLAdmin` (using a secure `AuthenticationBackend` - e.g., session-based with admin user check from DB) and mount it at `/admin`. Add `SessionMiddleware`.
+    * **Explain:** How can the `AuthenticationBackend` be implemented to check if the logged-in user has `is_superuser` flag in the `User` model?
+2.  **Backend Dockerfile (`Dockerfile`):**
+    * **Generate:** A multi-stage `Dockerfile` for the FastAPI backend (Python slim base, install dependencies including AI libs, non-root user, run with Uvicorn). Ensure build dependencies (like C++ compiler if needed for certain libs) are handled.
+3.  **Frontend Dockerfile (`frontend/Dockerfile`):**
+    * **Generate:** A multi-stage `Dockerfile` for the React frontend (Node base for build, Nginx base for serving).
+4.  **Docker Compose (`docker-compose.yml`):**
+    * **Generate:** A complete `docker-compose.yml` defining and linking services: `backend`, `frontend` (Nginx), `db` (PostgreSQL + volume), `redis` (+ volume), `ollama` (+ volume), `chromadb` (+ volume), `coturn` (using `coturn/coturn` image - placeholder). Include health checks, environment variables from `.env`, networks, persistent volumes.
+    * **Explain:** How do health checks (`depends_on: condition: service_healthy`) ensure services start in the correct order? How are volumes used for data persistence?
+5.  **Nginx Configuration (`frontend/nginx.conf`):**
+    * **Generate:** The Nginx config file for the `frontend` service. Must handle: serving static React files, client-side routing (`try_files`), reverse proxying `/api` to backend, reverse proxying `/ws` (WebSockets) correctly, reverse proxying `/admin` to backend. Include basic security headers and placeholders for HTTPS.
+    * **Explain:** Reiterate the critical headers needed for WebSocket proxying (`Upgrade`, `Connection "upgrade"`).
+6.  **Coturn Service (Placeholder):**
+    * **Generate:** Add the basic service definition for `coturn` in `docker-compose.yml`. Mount a placeholder config file (`coturn.conf`) and expose necessary ports (3478 TCP/UDP, 5349 TCP/UDP, relay ports).
+    * **Explain:** Briefly state that the `coturn.conf` file needs to be created and configured separately with secrets and IP addresses.
+
+
+
+    Act as an **AI Engineer** experienced with **FastAPI**, **Ollama**, **LangChain/LlamaIndex**, **ChromaDB**, and **SQLAlchemy**.
+
+**Objective:** Implement the backend services and API endpoints for the AI features.
+
+**Context:** Phase 5 (Deployment) setup is planned. Models exist. We need the service logic and endpoints. Assume Ollama and ChromaDB are running services accessible via network names defined in Docker Compose.
+
+**To-Do List:**
+
+1.  **AI Service (`app/services/ai_service.py`):**
+    * **Generate:** Functions `get_ollama_completion(prompt, model)` and `check_ollama_health()` using the `ollama` Python client, configured to connect to the Ollama service host from env vars. Include error handling.
+2.  **RAG Service (`app/services/rag_service.py`):**
+    * **Generate:** Function `get_embeddings()` initializing Sentence Transformer model.
+    * **Generate:** Function `get_chroma_client()` connecting to ChromaDB service host from env vars.
+    * **Generate:** Function `ingest_document(file_content, filename, channel_id, user_id)` using LangChain/LlamaIndex: Load (PDF/TXT), Split, Add Metadata, Embed, Store in ChromaDB collection.
+    * **Generate:** Function `perform_rag_search(query, accessible_channel_ids)`: Embed query, Search ChromaDB (with metadata filter), Format context, Construct prompt, Call `get_ollama_completion`, Return response.
+    * **(Optional):** Function `ingest_chat_message(message: Message)`: Embed message content and store in ChromaDB with metadata.
+3.  **AI Endpoints (`app/api/endpoints/ai.py`):**
+    * **Generate:** `/ai/search` (POST): Takes query, optional channel filters. Determines accessible channels for user. Calls `perform_rag_search`. Returns AI response. Requires auth.
+    * **Generate:** `/ai/summarize/{channel_id}` (POST): Takes channel ID. Fetches recent messages from PostgreSQL (respecting permissions). Formats context. Calls `get_ollama_completion` with summarization prompt. Requires auth.
+    * **Generate:** `/files/upload/{channel_id}` (POST): Accepts `UploadFile`. Calls `ingest_document`. Requires auth.
+    * **Generate:** `/ai/health` (GET): Calls `check_ollama_health` and checks ChromaDB connection.
+4.  **WebSocket AI Trigger (Update `app/api/endpoints/rt_gateway.py`):**
+    * **Generate:** Modify the WebSocket message handling loop: If a message starts with `@AI`, extract the query, call `get_ollama_completion` (potentially adding chat history context), and broadcast the response back using `manager.broadcast_to_channel`.
+5.  **Requirements:** Add `ollama`, `langchain`, `langchain-chroma`, `chromadb-client`, `sentence-transformers`, `pypdf` to `requirements.txt`.
+
+
+Act as a **Real-Time Communication Engineer** using **FastAPI** and **WebSockets**.
+
+**Objective:** Implement the necessary backend WebSocket logic for WebRTC signaling.
+
+**Context:** Phase 3 (WebSockets) established the `ConnectionManager` and gateway. We need to add specific handling for WebRTC messages.
+
+**To-Do List:**
+
+1.  **Update `ConnectionManager` (`app/services/ws_manager.py`):**
+    * **Verify:** Ensure the manager correctly maps `user_id` to `WebSocket` instances upon connection and cleans up on disconnection.
+    * **Verify:** Ensure the `send_personal_message(message: dict, user_id: str)` method correctly finds the target user's WebSocket and sends the JSON message.
+2.  **Update WebSocket Endpoint (`app/api/endpoints/rt_gateway.py`):**
+    * **Generate:** Modify the message handling loop:
+        * If incoming JSON message has `type` in `['webrtc_offer', 'webrtc_answer', 'webrtc_ice_candidate']`:
+            * Extract the `target_user_id` from the payload.
+            * Extract the signaling `payload` (e.g., `sdp` or `candidate`).
+            * Add the `sender_user_id` (from the current authenticated user) to the message dictionary.
+            * Call `manager.send_personal_message(full_message_dict, target_user_id)`.
+            * Add logging for signaling relay. Handle target user not found.
+    * **Explain:** How does this ensure signaling messages are routed correctly between specific peers without being broadcast to the entire channel?
+3.  **TURN Credentials API (Optional but Recommended - `app/api/endpoints/webrtc.py`):**
+    * **Generate:** A new API endpoint `/api/webrtc/turn-credentials` (GET, requires auth).
+    * **Code:** Implement logic to generate temporary TURN server credentials (username and credential/password) based on a shared secret (loaded from env var `TURN_SECRET`) and a timestamp, compatible with Coturn's `lt-cred-mech` or `long-term` auth. Return these credentials along with the TURN server URL(s).
+    * **Explain:** Why are temporary credentials more secure than embedding static credentials in the frontend?
+4.  **Requirements:** No new libraries likely needed, but ensure `python-jose` or similar is available if complex credential generation is used. Add `pyjwt` if needed for TURN.
+
+
+Act as a **Senior Full-Stack Developer** focused on security, maintainability, and testing using **FastAPI**, **SQLAlchemy**, **Python `cryptography`**, **asyncio**, and **pytest**.
+
+**Objective:** Add final polishing features: encryption, background tasks, licensing, and basic test setup.
+
+**To-Do List:**
+
+1.  **Encryption-at-Rest (`app/core/security.py`):**
+    * **Generate:** Functions `encrypt_data(plain_text)` and `decrypt_data(cipher_text)` using `cryptography.fernet.Fernet`. Load the Fernet key securely from env var `ENCRYPTION_KEY`. Handle errors gracefully.
+    * **Generate:** Function `is_encryption_enabled()`.
+    * **Explain:** How would you integrate these functions with SQLAlchemy models (e.g., using `@validates` or custom types) to automatically encrypt/decrypt specific fields (like `Message.content` or `DocumentPage.content`)? Show a conceptual example. Discuss secure key management.
+2.  **Background Tasks (`app/core/tasks.py`, `main.py`):**
+    * **Generate:** An async function `run_periodic_data_retention()` in `tasks.py` that loops indefinitely (`asyncio.sleep`):
+        * Gets a DB session.
+        * Queries and deletes `Message`s older than `DATA_RETENTION_DAYS` (from env var). Delete in batches.
+        * (Optional) Add logic to clean up old files or other resources.
+        * Logs its actions.
+    * **Generate:** Modify `main.py` to use FastAPI's `lifespan` context manager to start this task in the background on app startup and cancel it on shutdown.
+    * **Explain:** Discuss the pros and cons of this simple `asyncio` approach vs. using a dedicated task queue like Celery for background tasks.
+3.  **License Validation (`app/core/security.py`, `app/core/dependencies.py`):**
+    * **Generate:** Function `is_license_valid(provided_key)` in `security.py` that checks a key (from env var `LICENSE_KEY` or provided) against a basic format or validation logic (placeholder - e.g., check prefix). Return `True` if no key is set (open-source mode).
+    * **Generate:** Function `generate_license_key()` for admin use.
+    * **Generate:** FastAPI dependency `require_valid_license` in `dependencies.py` that calls `is_license_valid` and raises `HTTPException(403)` if invalid.
+    * **Explain:** Show how to apply the `require_valid_license` dependency to specific API routers or endpoints in `main.py` or endpoint files.
+4.  **Basic Testing Setup (`tests/`, `pytest.ini`, `conftest.py`):**
+    * **Generate:** Create a `tests/` directory structure.
+    * **Generate:** A basic `pytest.ini` or `pyproject.toml` with `pytest` configuration (e.g., setting `asyncio_mode = auto`).
+    * **Generate:** A `tests/conftest.py` file setting up:
+        * An `event_loop` fixture.
+        * An async test engine fixture (`test_engine`) using `sqlite+aiosqlite:///:memory:`.
+        * A `test_db` fixture that creates/drops all SQLAlchemy tables for each test function.
+        * A `db_session` fixture providing an isolated async session that rolls back.
+        * An `client` fixture providing an `httpx.AsyncClient` for the FastAPI app with the test DB session override.
+    * **Generate:** A simple example test file (`tests/api/test_health.py`) with an `async def test_health_check(client: AsyncClient):` that calls the `/health` endpoint and asserts a 200 status.
+    * **Explain:** How do these fixtures ensure that each test runs with a clean, isolated database?
+5.  **Requirements:** Add `pytest`, `pytest-asyncio`, `httpx`, `aiosqlite` to a `requirements-dev.txt`.

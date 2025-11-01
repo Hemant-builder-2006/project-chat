@@ -63,7 +63,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         
         if (storedToken) {
           // Token exists, validate it by fetching user data
-          const response = await api.get<User>('/users/me');
+          const response = await api.get<User>('/auth/me');
           
           setAccessToken(storedToken);
           setUser(response.data);
@@ -104,10 +104,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
    */
   const login = async (credentials: LoginCredentials): Promise<void> => {
     try {
-      // Call the login endpoint
-      const response = await api.post<AuthResponse>('/token', credentials);
+      // Backend expects FormData for OAuth2PasswordRequestForm
+      const formData = new URLSearchParams();
+      formData.append('username', credentials.username);
+      formData.append('password', credentials.password);
       
-      const { access_token, refresh_token, user: userData } = response.data;
+      // Call the login endpoint with FormData
+      const response = await api.post<AuthResponse>('/auth/login', formData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+      
+      const { access_token, refresh_token } = response.data;
       
       // Store tokens in localStorage
       localStorage.setItem('accessToken', access_token);
@@ -115,9 +124,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         localStorage.setItem('refreshToken', refresh_token);
       }
       
+      // Fetch user data with the new token
+      const userResponse = await api.get<User>('/auth/me');
+      
       // Update state
       setAccessToken(access_token);
-      setUser(userData);
+      setUser(userResponse.data);
       setIsAuthenticated(true);
     } catch (error: any) {
       console.error('Login failed:', error);
@@ -132,7 +144,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (credentials: RegisterCredentials): Promise<void> => {
     try {
       // Call the registration endpoint
-      await api.post('/register', credentials);
+      await api.post('/auth/register', credentials);
       
       // Automatically log in after successful registration
       await login({
